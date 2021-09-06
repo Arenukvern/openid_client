@@ -18,11 +18,11 @@ class Authenticator {
     Iterable<String> scopes = const [],
     Flow? flow,
   }) : this._(
-          flow ??
+          (flow ??
               Flow.implicit(
                 client,
                 state: window.localStorage['openid_client:state'],
-              )
+              ))
             ..scopes.addAll(scopes)
             ..redirectUri = Uri.parse(window.location.href).removeFragment(),
         );
