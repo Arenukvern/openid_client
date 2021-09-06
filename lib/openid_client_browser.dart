@@ -1,7 +1,9 @@
-import 'openid_client.dart';
-import 'dart:html' hide Credential, Client;
 import 'dart:async';
 import 'dart:convert';
+import 'dart:html' hide Credential, Client;
+
+import 'openid_client.dart';
+
 export 'openid_client.dart';
 
 class Authenticator {
@@ -11,11 +13,19 @@ class Authenticator {
 
   Authenticator._(this.flow) : credential = _credentialFromUri(flow);
 
-  Authenticator(Client client, {Iterable<String> scopes = const []})
-      : this._(Flow.implicit(client,
-            state: window.localStorage['openid_client:state'])
-          ..scopes.addAll(scopes)
-          ..redirectUri = Uri.parse(window.location.href).removeFragment());
+  Authenticator(
+    Client client, {
+    Iterable<String> scopes = const [],
+    Flow? flow,
+  }) : this._(
+          flow ??
+              Flow.implicit(
+                client,
+                state: window.localStorage['openid_client:state'],
+              )
+            ..scopes.addAll(scopes)
+            ..redirectUri = Uri.parse(window.location.href).removeFragment(),
+        );
 
   void authorize() {
     _forgetCredentials();
