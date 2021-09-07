@@ -453,7 +453,8 @@ class Flow {
   }
 
   Future<Credential> callback(Map<String, String> response) async {
-    if (response['state'] != state) {
+    final responseState = response['state'];
+    if (responseState != state) {
       throw ArgumentError('State does not match');
     }
     if (type == FlowType.jwtBearer) {
