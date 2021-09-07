@@ -388,7 +388,10 @@ class Flow {
       'redirect_uri': redirectUri.toString(),
       'state': state
     }..addAll(
-        responseType!.split(' ').contains('id_token') ? {'nonce': _nonce} : {});
+        responseType?.split(' ').contains('id_token') == true
+            ? {'nonce': _nonce}
+            : {},
+      );
 
     if (type == FlowType.proofKeyForCodeExchange) {
       v.addAll({
