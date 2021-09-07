@@ -456,10 +456,10 @@ class Flow {
   }
 
   Future<Credential> callback(Map<String, String> response) async {
-    final responseState = response['state'];
-    if (responseState != state) {
-      throw ArgumentError('State does not match');
-    }
+    // final responseState = response['state'];
+    // if (responseState != state) {
+    //   throw ArgumentError('State does not match');
+    // }
     if (type == FlowType.jwtBearer) {
       var code = response['jwt'];
       return Credential._(client, await _getToken(code), null);
