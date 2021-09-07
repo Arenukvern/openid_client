@@ -58,7 +58,6 @@ class Authenticator {
         q.containsKey('code') ||
         q.containsKey('id_token')) {
       window.localStorage['openid_client:auth'] = json.encode(q);
-      window.localStorage['openid_client:state'] = q['state'];
       if (reload) {
         window.location.href = Uri.parse(href).removeFragment().toString();
       }
