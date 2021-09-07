@@ -51,7 +51,8 @@ class Authenticator {
 
   static Map<String, String> _credentialFromHref(String href) {
     var q = <String, String>{};
-    final uri = Uri(query: Uri.parse(href).fragment);
+    final firstUri = Uri.parse(href);
+    final uri = Uri(query: firstUri.fragment);
     q = uri.queryParameters;
     if (q.containsKey('access_token') ||
         q.containsKey('code') ||
