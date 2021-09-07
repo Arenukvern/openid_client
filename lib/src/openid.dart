@@ -422,15 +422,18 @@ class Flow {
           },
           client: client!.httpClient);
     } else if (methods!.contains('client_secret_post')) {
-      json = await http.post(client!.issuer!.metadata.tokenEndpoint,
-          body: {
-            'grant_type': 'authorization_code',
-            'code': code,
-            'redirect_uri': redirectUri.toString(),
-            'client_id': client!.clientId,
-            'client_secret': client!.clientSecret
-          },
-          client: client!.httpClient);
+      json = await http.post(
+        client!.issuer!.metadata.tokenEndpoint,
+        body: {
+          'grant_type': 'authorization_code',
+          'code': code,
+          'redirect_uri': redirectUri.toString(),
+          'client_id': client!.clientId,
+          'client_secret': client!.clientSecret
+        },
+        headers: {'Access-Control-Allow-Origin': '*'},
+        client: client!.httpClient,
+      );
     } else if (methods.contains('client_secret_basic')) {
       var h = base64
           .encode('${client!.clientId}:${client!.clientSecret}'.codeUnits);
