@@ -76,7 +76,7 @@ class Authenticator {
       /// Suppose that it is href
       q = _credentialFromHref(href, reload: false);
     } else {
-      q = _credentialFromHref(window.location.href, reload: false);
+      q = _credentialFromHref(window.location.href);
     }
     if (q == null) return null;
     if (q.containsKey('access_token') ||
