@@ -49,7 +49,7 @@ class Authenticator {
     window.localStorage.remove('openid_client:auth');
   }
 
-  static Map? _credentialFromHref(String href) {
+  static Map? _credentialFromHref(String href, {bool reload = true}) {
     Map? q;
     final firstUri = Uri.parse(href);
     final uri = Uri(query: firstUri.fragment);
@@ -59,7 +59,9 @@ class Authenticator {
         q.containsKey('id_token')) {
       window.localStorage['openid_client:auth'] = json.encode(q);
       window.localStorage['openid_client:state'] = q['state'];
-      window.location.href = Uri.parse(href).removeFragment().toString();
+      if (reload) {
+        window.location.href = Uri.parse(href).removeFragment().toString();
+      }
     }
     return q;
   }
@@ -74,7 +76,7 @@ class Authenticator {
       /// Suppose that it is href
       q = _credentialFromHref(href);
     } else {
-      _credentialFromHref(window.location.href);
+      _credentialFromHref(window.location.href, reload: false);
     }
     if (q == null) return null;
     if (q.containsKey('access_token') ||
