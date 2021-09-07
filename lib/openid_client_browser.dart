@@ -49,8 +49,8 @@ class Authenticator {
     window.localStorage.remove('openid_client:auth');
   }
 
-  static Map<String, String> _credentialFromHref(String href) {
-    var q = <String, String>{};
+  static Map? _credentialFromHref(String href) {
+    Map? q;
     final firstUri = Uri.parse(href);
     final uri = Uri(query: firstUri.fragment);
     q = uri.queryParameters;
@@ -64,7 +64,7 @@ class Authenticator {
   }
 
   static Future<Credential?> _credentialFromUri(Flow flow) async {
-    var q = <String, String>{};
+    Map? q;
     final auth = window.localStorage['openid_client:auth'];
     final href = window.localStorage['openid_client:href'];
     if (auth != null) {
@@ -75,6 +75,7 @@ class Authenticator {
     } else {
       _credentialFromHref(window.location.href);
     }
+    if (q == null) return null;
     if (q.containsKey('access_token') ||
         q.containsKey('code') ||
         q.containsKey('id_token')) {
