@@ -465,6 +465,7 @@ class Flow {
       return Credential._(client, await _getToken(code), null);
     } else if (response.containsKey('code') &&
         (type == FlowType.proofKeyForCodeExchange ||
+            type == FlowType.authorizationCode ||
             client!.clientSecret != null)) {
       var code = response['code'];
       return Credential._(client, await _getToken(code), null);
