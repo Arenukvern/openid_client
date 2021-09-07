@@ -49,20 +49,30 @@ class Authenticator {
     window.localStorage.remove('openid_client:auth');
   }
 
+  static Map? parseHref(String href) {
+    Map? q;
+    final uri = Uri(query: Uri.parse(href).fragment);
+    q = uri.queryParameters;
+    if (q.containsKey('access_token') ||
+        q.containsKey('code') ||
+        q.containsKey('id_token')) {
+      window.localStorage['openid_client:auth'] = json.encode(q);
+      window.location.href = Uri.parse(href).removeFragment().toString();
+    }
+    return q;
+  }
+
   static Future<Credential?> _credentialFromUri(Flow flow) async {
     Map? q;
-    if (window.localStorage.containsKey('openid_client:auth')) {
-      q = json.decode(window.localStorage['openid_client:auth']!);
+    final auth = window.localStorage['openid_client:auth'];
+    final href = window.localStorage['openid_client:href'];
+    if (auth != null) {
+      q = json.decode(auth);
+    } else if (href != null) {
+      /// Suppose that it is href
+      q = parseHref(href);
     } else {
-      var uri = Uri(query: Uri.parse(window.location.href).fragment);
-      q = uri.queryParameters;
-      if (q.containsKey('access_token') ||
-          q.containsKey('code') ||
-          q.containsKey('id_token')) {
-        window.localStorage['openid_client:auth'] = json.encode(q);
-        window.location.href =
-            Uri.parse(window.location.href).removeFragment().toString();
-      }
+      parseHref(window.location.href);
     }
     if (q!.containsKey('access_token') ||
         q.containsKey('code') ||
