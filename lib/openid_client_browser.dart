@@ -24,7 +24,7 @@ class Authenticator {
                 state: window.localStorage['openid_client:state'],
               ))
             ..scopes.addAll(scopes)
-            ..redirectUri = Uri.parse(window.location.href).removeFragment(),
+            ..redirectUri = Uri.parse(window.location.origin).removeFragment(),
         );
 
   void authorize() {
