@@ -11,6 +11,7 @@ import 'package:pointycastle/digests/sha256.dart';
 import 'http_util.dart' as http;
 import 'model.dart';
 
+export 'http_util.dart' show HttpRequestException;
 export 'model.dart';
 
 /// Represents an OpenId Provider
@@ -131,13 +132,13 @@ class Issuer {
 /// Represents the client application.
 class Client {
   /// The id of the client.
-  final String? clientId;
+  final String clientId;
 
   /// A secret for authenticating the client to the OP.
   final String? clientSecret;
 
   /// The [Issuer] representing the OP.
-  final Issuer? issuer;
+  final Issuer issuer;
 
   final http.Client? httpClient;
 
@@ -179,7 +180,7 @@ class Client {
 
 class Credential {
   TokenResponse _token;
-  final Client? client;
+  final Client client;
   final String? nonce;
 
   Credential._(this.client, this._token, this.nonce);
@@ -187,7 +188,7 @@ class Credential {
   Map<String, dynamic>? get response => _token.toJson();
 
   Future<UserInfo> getUserInfo() async {
-    var uri = client!.issuer!.metadata.userinfoEndpoint;
+    var uri = client.issuer.metadata.userinfoEndpoint;
     if (uri == null) {
       throw UnsupportedError('Issuer does not support userinfo endpoint.');
     }
@@ -199,7 +200,7 @@ class Credential {
   ///
   /// See https://tools.ietf.org/html/rfc7009
   Future<void> revoke() async {
-    var uri = client!.issuer!.metadata.revocationEndpoint;
+    var uri = client.issuer.metadata.revocationEndpoint;
     if (uri == null) {
       throw UnsupportedError('Issuer does not support revocation endpoint.');
     }
@@ -220,8 +221,7 @@ class Credential {
   ///
   /// See https://openid.net/specs/openid-connect-rpinitiated-1_0.html
   Uri? generateLogoutUrl({Uri? redirectUri, String? state}) {
-    return client!.issuer!.metadata.endSessionEndpoint
-        ?.replace(queryParameters: {
+    return client.issuer.metadata.endSessionEndpoint?.replace(queryParameters: {
       'id_token_hint': _token.idToken.toCompactSerialization(),
       if (redirectUri != null)
         'post_logout_redirect_uri': redirectUri.toString(),
@@ -231,7 +231,7 @@ class Credential {
 
   http.Client createHttpClient([http.Client? baseClient]) =>
       http.AuthorizedClient(
-          baseClient ?? client!.httpClient ?? http.Client(), this);
+          baseClient ?? client.httpClient ?? http.Client(), this);
 
   Future _get(uri) async {
     return http.get(uri, client: createHttpClient());
@@ -246,21 +246,21 @@ class Credential {
   Stream<Exception> validateToken(
       {bool validateClaims = true, bool validateExpiry = true}) async* {
     var keyStore = JsonWebKeyStore();
-    var jwksUri = client!.issuer!.metadata.jwksUri;
+    var jwksUri = client.issuer.metadata.jwksUri;
     if (jwksUri != null) {
       keyStore.addKeySetUrl(jwksUri);
     }
     if (!await idToken.verify(keyStore,
         allowedArguments:
-            client!.issuer!.metadata.idTokenSigningAlgValuesSupported)) {
+            client.issuer.metadata.idTokenSigningAlgValuesSupported)) {
       yield JoseException('Could not verify token signature');
     }
 
     yield* Stream.fromIterable(idToken.claims
         .validate(
             expiryTolerance: const Duration(seconds: 30),
-            issuer: client!.issuer!.metadata.issuer,
-            clientId: client!.clientId,
+            issuer: client.issuer.metadata.issuer,
+            clientId: client.clientId,
             nonce: nonce)
         .where((e) =>
             validateExpiry ||
@@ -279,19 +279,14 @@ class Credential {
       return _token;
     }
 
-    var json = await http.post(client!.issuer!.metadata.tokenEndpoint,
+    var json = await http.post(client.issuer.metadata.tokenEndpoint,
         body: {
           'grant_type': 'refresh_token',
           'refresh_token': _token.refreshToken,
-          'client_id': client!.clientId,
-          if (client!.clientSecret != null)
-            'client_secret': client!.clientSecret
+          'client_id': client.clientId,
+          if (client.clientSecret != null) 'client_secret': client.clientSecret
         },
-        client: client!.httpClient);
-    if (json['error'] != null) {
-      throw OpenIdException(
-          json['error'], json['error_description'], json['error_uri']);
-    }
+        client: client.httpClient);
 
     return _token = TokenResponse.fromJson(json);
   }
@@ -308,9 +303,9 @@ class Credential {
             json['nonce']);
 
   Map<String, dynamic> toJson() => {
-        'issuer': client!.issuer!.metadata.toJson(),
-        'client_id': client!.clientId,
-        'client_secret': client!.clientSecret,
+        'issuer': client.issuer.metadata.toJson(),
+        'client_id': client.clientId,
+        'client_secret': client.clientSecret,
         'token': _token.toJson(),
         'nonce': nonce
       };
@@ -328,7 +323,7 @@ class Flow {
 
   final String? responseType;
 
-  final Client? client;
+  final Client client;
 
   final List<String> scopes = [];
 
@@ -338,9 +333,9 @@ class Flow {
 
   Flow._(this.type, this.responseType, this.client, {String? state})
       : state = state ?? _randomString(20) {
-    var scopes = client!.issuer!.metadata.scopesSupported;
+    var scopes = client.issuer.metadata.scopesSupported ?? [];
     for (var s in const ['openid', 'profile', 'email']) {
-      if (scopes!.contains(s)) {
+      if (scopes.contains(s)) {
         this.scopes.add(s);
         break;
       }
@@ -356,10 +351,10 @@ class Flow {
     };
   }
 
-  Flow.authorizationCode(Client? client, {String? state})
+  Flow.authorizationCode(Client client, {String? state})
       : this._(FlowType.authorizationCode, 'code', client, state: state);
 
-  Flow.authorizationCodeWithPKCE(Client? client, {String? state})
+  Flow.authorizationCodeWithPKCE(Client client, {String? state})
       : this._(FlowType.proofKeyForCodeExchange, 'code', client, state: state);
 
   Flow.implicit(Client client, {String? state})
@@ -367,13 +362,13 @@ class Flow {
             FlowType.implicit,
             ['token id_token', 'id_token token', 'id_token', 'token']
                 .firstWhere((v) =>
-                    client.issuer!.metadata.responseTypesSupported.contains(v)),
+                    client.issuer.metadata.responseTypesSupported.contains(v)),
             client,
             state: state);
 
   Flow.jwtBearer(Client client) : this._(FlowType.jwtBearer, null, client);
 
-  Uri get authenticationUri => client!.issuer!.metadata.authorizationEndpoint
+  Uri get authenticationUri => client.issuer.metadata.authorizationEndpoint
       .replace(queryParameters: _authenticationUriParameters);
 
   late Map<String, String> _proofKeyForCodeExchange;
@@ -384,7 +379,7 @@ class Flow {
     var v = {
       'response_type': responseType,
       'scope': scopes.join(' '),
-      'client_id': client!.clientId,
+      'client_id': client.clientId,
       'redirect_uri': redirectUri.toString(),
       'state': state
     }..addAll(
@@ -403,54 +398,50 @@ class Flow {
   }
 
   Future<TokenResponse> _getToken(String? code) async {
-    var methods = client!.issuer!.metadata.tokenEndpointAuthMethodsSupported;
+    var methods = client.issuer.metadata.tokenEndpointAuthMethodsSupported;
     var json;
     if (type == FlowType.jwtBearer) {
-      json = await http.post(client!.issuer!.metadata.tokenEndpoint,
+      json = await http.post(client.issuer.metadata.tokenEndpoint,
           body: {
             'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
             'assertion': code,
           },
-          client: client!.httpClient);
+          client: client.httpClient);
     } else if (type == FlowType.proofKeyForCodeExchange) {
-      json = await http.post(client!.issuer!.metadata.tokenEndpoint,
+      json = await http.post(client.issuer.metadata.tokenEndpoint,
           body: {
             'grant_type': 'authorization_code',
             'code': code,
             'redirect_uri': redirectUri.toString(),
-            'client_id': client!.clientId,
-            if (client!.clientSecret != null)
-              'client_secret': client!.clientSecret,
+            'client_id': client.clientId,
+            if (client.clientSecret != null)
+              'client_secret': client.clientSecret,
             'code_verifier': _proofKeyForCodeExchange['code_verifier']
           },
-          client: client!.httpClient);
+          client: client.httpClient);
     } else if (methods!.contains('client_secret_post')) {
-      json = await http.post(client!.issuer!.metadata.tokenEndpoint,
+      json = await http.post(client.issuer.metadata.tokenEndpoint,
           body: {
             'grant_type': 'authorization_code',
             'code': code,
             'redirect_uri': redirectUri.toString(),
-            'client_id': client!.clientId,
-            'client_secret': client!.clientSecret
+            'client_id': client.clientId,
+            'client_secret': client.clientSecret
           },
-          client: client!.httpClient);
+          client: client.httpClient);
     } else if (methods.contains('client_secret_basic')) {
-      var h = base64
-          .encode('${client!.clientId}:${client!.clientSecret}'.codeUnits);
-      json = await http.post(client!.issuer!.metadata.tokenEndpoint,
+      var h =
+          base64.encode('${client.clientId}:${client.clientSecret}'.codeUnits);
+      json = await http.post(client.issuer.metadata.tokenEndpoint,
           headers: {'authorization': 'Basic $h'},
           body: {
             'grant_type': 'authorization_code',
             'code': code,
             'redirect_uri': redirectUri.toString()
           },
-          client: client!.httpClient);
+          client: client.httpClient);
     } else {
       throw UnsupportedError('Unknown auth methods: $methods');
-    }
-    if (json['error'] != null) {
-      throw OpenIdException(
-          json['error'], json['error_description'], json['error_uri']);
     }
     return TokenResponse.fromJson(json);
   }
@@ -466,7 +457,7 @@ class Flow {
     } else if (response.containsKey('code') &&
         (type == FlowType.proofKeyForCodeExchange ||
             type == FlowType.authorizationCode ||
-            client!.clientSecret != null)) {
+            client.clientSecret != null)) {
       var code = response['code'];
       return Credential._(client, await _getToken(code), null);
     } else if (response.containsKey('access_token') ||
@@ -484,6 +475,7 @@ String _randomString(int length) {
   return Iterable.generate(50, (_) => chars[r.nextInt(chars.length)]).join();
 }
 
+/// An exception thrown when a response is received in the openid error format.
 class OpenIdException implements Exception {
   /// An error code
   final String? code;
